@@ -1,0 +1,10 @@
+#%%
+from pressure_sensor import Keller
+
+keller = Keller()
+
+print("Firmware:", keller.get_firmware())
+print("Pressure:", keller.get_pressure())
+print("Status:", keller.get_status())
+
+# %%
