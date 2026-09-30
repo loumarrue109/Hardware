@@ -2,7 +2,7 @@
 import keller_protocol.keller_protocol as kp
 
 
-class Keller:
+class Pressure_Sensor:
     """
     Interface for a Keller pressure sensor.
 

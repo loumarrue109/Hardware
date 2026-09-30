@@ -1,7 +1,7 @@
 #%%
-from pressure_sensor import Keller
+from pressure_sensor import Pressure_Sensor
 
-keller = Keller()
+keller = Pressure_Sensor()
 
 print("Firmware:", keller.get_firmware())
 print("Pressure:", keller.get_pressure())
