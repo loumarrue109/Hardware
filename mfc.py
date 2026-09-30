@@ -86,7 +86,8 @@ class MFC:
             "unit": self.get_unit(),
         }
 
-mfc = MFC()
+if __name__ == "__main__":
+    mfc = MFC()
 
 
 
