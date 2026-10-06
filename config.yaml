@@ -1,0 +1,20 @@
+pressure_sensor:
+  port: /dev/ttySC0
+  address: 1
+  channel: 1
+  baud_rate: 9600
+  timeout: 0.5
+  echo: false
+
+  unit: bar
+
+  calibration:
+    slope: 1.0
+    offset: 0.0
+
+    #we need calibration measurements from a second sensor in calibration.py
+
+  #do we need to write a calbration bit for the MFC?
+
+
+

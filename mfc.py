@@ -12,8 +12,8 @@ class MFC:
     Main functions:
         get_serial()      - Read the MFC serial number.
         get_flow()        - Read the current measured flow.
-        get_setpoint()   - Read the current flow setpoint.
-        get_capacity()   - Read the configured maximum capacity.
+        get_setpoint()    - Read the current flow setpoint.
+        get_capacity()    - Read the configured maximum capacity.
         get_unit()        - Read the configured flow unit.
         set_flow(flow)    - Set the desired flow.
         stop_flow()       - Set the flow setpoint to zero.
