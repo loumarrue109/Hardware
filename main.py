@@ -15,6 +15,17 @@ from pump import Pump
 POLL_INTERVAL = 1.0  # seconds between sensor reads
 UI_POLL_INTERVAL = 200  # milliseconds between UI queue checks
 
+# Dark navy theme
+BG = "#0d1b2a"          # window background
+PANEL_BG = "#142a4d"    # panel / labelframe background
+ENTRY_BG = "#1c3a63"    # entry field background
+BUTTON_BG = "#1f3f6e"   # ttk button background
+BUTTON_ACTIVE = "#3a67a3"
+FG = "#e8e8f0"          # main text colour
+FG_DIM = "#7fb3d9"      # disabled / secondary text
+PUMP_ON = "#4ade80"
+PUMP_OFF = "#ff5f5f"
+
 
 def _connect(factory):
     """Return (device, error); error is None on success."""
@@ -36,14 +47,17 @@ class Dashboard:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("Sampler Control Dashboard")
+        self.root.title("Abbey ROAD (Remote Observation & Aquistion Dashboard)")
         self.root.geometry("820x470")
         self.root.minsize(680, 400)
+        self.root.configure(bg=BG)
+        self._setup_style()
 
         self._lock = threading.Lock()
         self._queue = Queue()      # worker -> UI updates
         self._actions = Queue()    # UI -> worker commands
         self._stop = threading.Event()
+        
         self._pump_state = "OFF"
 
         self.mfc, mfc_err = _connect(MFC)
@@ -67,6 +81,48 @@ class Dashboard:
 
     # ------------------------------------------------------------------ UI
 
+    def _setup_style(self):
+        style = ttk.Style(self.root)
+        style.theme_use("clam")
+        style.configure("Dashboard.TFrame", background=BG)
+        style.configure(
+            "Dashboard.TLabelframe",
+            background=PANEL_BG,
+            foreground=FG,
+        )
+        style.configure(
+            "Dashboard.TLabelframe.Label",
+            background=PANEL_BG,
+            foreground=FG,
+        )
+        style.layout(
+            "Dashboard.TLabelframe", style.layout("TLabelframe")
+        )
+        style.layout(
+            "Dashboard.TLabelframe.Label",
+            style.layout("TLabelframe.Label"),
+        )
+        style.configure(
+            "Dashboard.TEntry",
+            fieldbackground=ENTRY_BG,
+            foreground=FG,
+            insertcolor=FG,
+        )
+        style.configure(
+            "Dashboard.TButton",
+            background=BUTTON_BG,
+            foreground=FG,
+            bordercolor=BUTTON_BG,
+            lightcolor=BUTTON_BG,
+            darkcolor=BUTTON_BG,
+            focuscolor=BUTTON_BG,
+        )
+        style.map(
+            "Dashboard.TButton",
+            background=[("active", BUTTON_ACTIVE), ("disabled", BUTTON_BG)],
+            foreground=[("disabled", FG_DIM)],
+        )
+
     def _build_ui(self):
         self._var_serial = tk.StringVar(value="—")
         self._var_capacity = tk.StringVar(value="—")
@@ -84,23 +140,32 @@ class Dashboard:
 
         tk.Label(
             self.root,
-            text="Sampler Control Dashboard",
+            text="Abbey ROAD",
             font=("Helvetica", 16, "bold"),
+            bg=BG,
+            fg=FG,
         ).grid(row=0, column=0, columnspan=3, pady=(10, 5))
 
-        content = ttk.Frame(self.root)
+        content = ttk.Frame(self.root, style="Dashboard.TFrame")
         content.grid(row=1, column=0, columnspan=3, sticky="nsew", padx=10)
         content.columnconfigure((0, 1, 2), weight=1, uniform="panel")
 
-        mfc_frame = ttk.LabelFrame(content, text="Mass Flow Controller (MFC)")
+        mfc_frame = ttk.LabelFrame(
+            content, text="Mass Flow Controller (MFC)",
+            style="Dashboard.TLabelframe",
+        )
         mfc_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         self._build_mfc_panel(mfc_frame)
 
-        pump_frame = ttk.LabelFrame(content, text="Pump")
+        pump_frame = ttk.LabelFrame(
+            content, text="Pump", style="Dashboard.TLabelframe"
+        )
         pump_frame.grid(row=0, column=1, sticky="nsew", padx=(0, 10))
         self._build_pump_panel(pump_frame)
 
-        sensor_frame = ttk.LabelFrame(content, text="Pressure Sensor")
+        sensor_frame = ttk.LabelFrame(
+            content, text="Pressure Sensor", style="Dashboard.TLabelframe"
+        )
         sensor_frame.grid(row=0, column=2, sticky="nsew")
         self._build_sensor_panel(sensor_frame)
 
@@ -110,6 +175,8 @@ class Dashboard:
             anchor="w",
             relief="sunken",
             padx=8,
+            bg=BG,
+            fg=FG,
         ).grid(row=2, column=0, columnspan=3, sticky="ew", padx=10, pady=10)
 
         self.root.rowconfigure(1, weight=1)
@@ -120,10 +187,10 @@ class Dashboard:
             self._stop_flow_button.config(state="disabled")
 
     def _field(self, parent, row, text, variable, column=1):
-        tk.Label(parent, text=text, anchor="w").grid(
+        tk.Label(parent, text=text, anchor="w", bg=PANEL_BG, fg=FG).grid(
             row=row, column=0, sticky="w", padx=8, pady=2
         )
-        tk.Label(parent, textvariable=variable, anchor="w").grid(
+        tk.Label(parent, textvariable=variable, anchor="w", bg=PANEL_BG, fg=FG).grid(
             row=row, column=column, sticky="w", padx=8, pady=2
         )
 
@@ -134,19 +201,24 @@ class Dashboard:
         self._field(frame, 3, "Flow:", self._var_flow)
         self._field(frame, 4, "Setpoint:", self._var_setpoint)
 
-        entry_row = ttk.Frame(frame)
+        entry_row = ttk.Frame(frame, style="Dashboard.TFrame")
         entry_row.grid(row=5, column=0, columnspan=2, sticky="ew", padx=8, pady=(10, 4))
-        entry = ttk.Entry(entry_row, textvariable=self._var_set_entry, width=10)
+        entry = ttk.Entry(
+            entry_row, textvariable=self._var_set_entry, width=10,
+            style="Dashboard.TEntry",
+        )
         entry.pack(side="left")
         entry.bind("<Return>", lambda e: self._on_set_flow())
 
         self._set_flow_button = ttk.Button(
-            entry_row, text="Set Flow", command=self._on_set_flow
+            entry_row, text="Set Flow", command=self._on_set_flow,
+            style="Dashboard.TButton",
         )
         self._set_flow_button.pack(side="left", padx=(6, 0))
 
         self._stop_flow_button = ttk.Button(
-            frame, text="Stop Flow", command=lambda: self._submit("stop_flow")
+            frame, text="Stop Flow", command=lambda: self._submit("stop_flow"),
+            style="Dashboard.TButton",
         )
         self._stop_flow_button.grid(row=6, column=0, columnspan=2, sticky="ew", padx=8, pady=4)
 
@@ -155,7 +227,8 @@ class Dashboard:
             frame,
             textvariable=self._var_pump,
             font=("Helvetica", 12, "bold"),
-            fg="#b22222",
+            fg=PUMP_OFF,
+            bg=PANEL_BG,
         )
         self._pump_status_label.grid(row=0, column=0, padx=8, pady=4)
 
@@ -302,7 +375,7 @@ class Dashboard:
         if data.get("pump") != self._var_pump.get():
             self._var_pump.set(data["pump"])
             on = data["pump"] == "ON"
-            self._pump_status_label.config(fg="#2e8b57" if on else "#b22222")
+            self._pump_status_label.config(fg=PUMP_ON if on else PUMP_OFF)
             self._set_status(f"Pump turned {'ON' if on else 'OFF'}")
 
     # ------------------------------------------------------------- cleanup
