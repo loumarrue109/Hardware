@@ -37,6 +37,22 @@ class Pressure_Sensor:
             echo=self.echo,
         )
 
+        # Wake / initialise the sensor once we own the port. F48 both wakes
+        # a sleeping sensor and reports the firmware version; without this
+        # the very first pressure read can miss the sensor's response.
+        self.wake()
+
+    def wake(self):
+        """Send F48 (initialise and release) to wake the sensor.
+
+        Returns the firmware string, or None if the sensor is not
+        responding right now.
+        """
+        try:
+            return self.get_firmware()
+        except Exception:
+            return None
+
     def get_firmware(self):
         return self.bus.f48(self.address)
 
