@@ -1,0 +1,33 @@
+# Rig configuration for the sampler.
+# This is a data file -- edit it freely, it is not Python code.
+
+[serial]
+port = "/dev/ttyUSB1"
+baudrate = 9600
+timeout = 2.0
+
+[valve]
+num_positions = 16   # number of ports on the valve
+mode = 3             # 1 = 2 POS w/stops, 2 = 2 POS wo/stops, 3 = multipos
+direction = "A"      # F = forward, R = reverse, A = auto (shortest path)
+response_mode = 2    # 0 = none, 1 = limited, 2 = extended
+high_speed = false
+cycle_counter = 0
+# offset intentionally not set: SO numbering starts at 1 and 0 is rejected
+
+[mfc]
+port = "/dev/ttyUSB0"
+address = 128
+channel = 1
+baudrate = 38400
+
+[pressure_sensor]
+port = "/dev/ttySC0"
+address = 1
+channel = 1
+baud_rate = 9600
+timeout = 0.5
+echo = false
+
+[pump]
+pin = 17
