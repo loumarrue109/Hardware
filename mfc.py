@@ -45,6 +45,28 @@ class MFC:
         serial = self.instrument.readParameter(1)
         return serial.strip("\x07")
 
+    def get_control_mode(self):
+        """Read the setpoint source (parameter 12, cntrlmode).
+
+        0 = BUS/RS-232, 1 = analog input, 11 = keyboard OR BUS,
+        18 = RS-232 setpoint.
+        """
+        return self.instrument.readParameter(12)
+
+    def set_control_mode(self, mode):
+        """Set the setpoint source (parameter 12, cntrlmode)."""
+        return self.instrument.writeParameter(12, mode)
+
+    def enable_remote_setpoint(self, mode=0):
+        """Point the setpoint at the digital BUS/RS-232 register.
+
+        Default mode 0 = BUS setpoint; the instrument remembers this
+        setting even after power cycling.
+        """
+        if self.instrument.writeParameter(12, mode):
+            return self.get_control_mode()
+        raise RuntimeError("Failed to set MFC control mode.")
+
     def get_flow(self):
         return self.instrument.read(1, 0, 34)
 
@@ -65,6 +87,13 @@ class MFC:
             raise ValueError(
                 f"Flow {flow} exceeds MFC capacity "
                 f"of {self.capacity} {self.unit}."
+            )
+
+        mode = self.get_control_mode()
+        if mode not in (0, 11, 18):
+            raise RuntimeError(
+                f"MFC setpoint source is not digital (parameter 12 = {mode}). "
+                "Call enable_remote_setpoint() first."
             )
 
         success = self.instrument.write(33, 3, 65, float(flow))

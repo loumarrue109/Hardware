@@ -14,14 +14,19 @@ from dashboard import Dashboard, connect
 
 
 def main():
-    valve, valve_cfg = make_valve()
-    valve_num_positions = valve_cfg.num_positions or 16
+    try:
+        valve, valve_cfg = make_valve()
+        valve_err = None
+    except Exception as exc:
+        valve, valve_cfg, valve_err = None, None, exc
+    valve_num_positions = valve_cfg.num_positions if valve_cfg else 16
 
     mfc, mfc_err = connect(make_mfc)
     sensor, sensor_err = connect(make_pressure_sensor)
     pump, pump_err = connect(make_pump)
 
     for name, err in (
+        ("Valve", valve_err),
         ("MFC", mfc_err),
         ("Pressure sensor", sensor_err),
         ("Pump", pump_err),

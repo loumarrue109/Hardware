@@ -5,6 +5,9 @@
 # To also physically move the valve:  python3 test_valve.py move
 
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from valve import Valve
 
