@@ -31,3 +31,8 @@ echo = false
 
 [pump]
 pin = 17
+
+[co2_sensor]
+port = "/dev/ttyUSB2"   # set to the GMP343's serial port
+baudrate = 19200
+timeout = 2.0

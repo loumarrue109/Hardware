@@ -52,3 +52,9 @@ def make_pump(path=_CONFIG_PATH):
     """Create a Pump from the ``[pump]`` section."""
     from pump import Pump
     return Pump(**load_config(path).get("pump", {}))
+
+
+def make_co2_sensor(path=_CONFIG_PATH):
+    """Open a CO2Sensor from the ``[co2_sensor]`` section."""
+    from co2_sensor import CO2Sensor
+    return CO2Sensor(**load_config(path).get("co2_sensor", {}))
