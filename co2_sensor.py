@@ -34,11 +34,11 @@ class CO2Sensor:
         send_command()    - Send any command and return its response lines.
     """
 
-    NUMBER = re.compile(r"^\s*([-+]?[0-9]*\.?[0-9]+)\s*([a-zA-Z%/]+)")
+    NUMBER = re.compile(r"^\s*([-+]?[0-9]*\.?[0-9]+)\s*([a-zA-Z%/]*)")
 
     def __init__(
         self,
-        port="/dev/ttyUSB2",
+        port="/dev/ttyUSB0",
         baudrate=19200,
         bytesize=8,
         parity=serial.PARITY_NONE,
@@ -114,7 +114,7 @@ class CO2Sensor:
                 value = float(match.group(1))
                 if result["co2"] is None:
                     result["co2"] = value
-                    result["unit"] = match.group(2) or None
+                    result["unit"] = (match.group(2) or "ppm").strip()
         return result
 
     # ------------------------------------------------------- measurements

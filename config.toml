@@ -16,7 +16,7 @@ cycle_counter = 0
 # offset intentionally not set: SO numbering starts at 1 and 0 is rejected
 
 [mfc]
-port = "/dev/ttyUSB0"
+port = "/dev/ttyUSB2"   # verified: MFC answers here
 address = 128
 channel = 1
 baudrate = 38400
@@ -33,6 +33,6 @@ echo = false
 pin = 17
 
 [co2_sensor]
-port = "/dev/ttyUSB2"   # set to the GMP343's serial port
+port = "/dev/ttyUSB0"   # verified: CO2 adapter is here (echoes via jumper)
 baudrate = 19200
 timeout = 2.0

@@ -14,7 +14,8 @@ from co2_sensor import CO2Sensor
 
 
 def main():
-    sensor = CO2Sensor()
+    from config import make_co2_sensor
+    sensor = make_co2_sensor()  # read the port from config.toml
     try:
         print("Port opened:", sensor.ser.is_open)
         print()

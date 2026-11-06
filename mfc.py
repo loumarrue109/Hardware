@@ -40,6 +40,12 @@ class MFC:
 
         self.capacity = 1000.0
         self.unit = "mln/min"
+        try:
+            capacity = self.get_capacity()
+            if capacity:
+                self.capacity = float(capacity)
+        except Exception:
+            pass
 
     def get_serial(self):
         serial = self.instrument.readParameter(1)
@@ -68,7 +74,15 @@ class MFC:
         raise RuntimeError("Failed to set MFC control mode.")
 
     def get_flow(self):
-        return self.instrument.read(1, 0, 34)
+        """Return the measured flow in ml/min.
+
+        The device returns the measure as raw 0-32000 counts (full scale
+        = the configured capacity), so convert to engineering units here.
+        """
+        counts = self.instrument.read(1, 0, 34)
+        if counts is None:
+            return None
+        return counts / 32000.0 * self.capacity
 
     def get_setpoint(self):
         return self.instrument.read(33, 3, 65)
@@ -91,10 +105,10 @@ class MFC:
 
         mode = self.get_control_mode()
         if mode not in (0, 11, 18):
-            raise RuntimeError(
-                f"MFC setpoint source is not digital (parameter 12 = {mode}). "
-                "Call enable_remote_setpoint() first."
-            )
+            # The instrument can revert to an analog setpoint source (e.g.
+            # after a power cycle); the dashboard always drives it
+            # digitally, so switch the source to the BUS/RS-232 setpoint.
+            self.set_control_mode(0)
 
         success = self.instrument.write(33, 3, 65, float(flow))
 

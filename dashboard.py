@@ -54,6 +54,7 @@ class Dashboard:
         mfc=None,
         pressure_sensor=None,
         pump=None,
+        co2=None,
         valve_num_positions=16,
     ):
         self.root = root
@@ -72,6 +73,7 @@ class Dashboard:
         self.mfc = mfc
         self.sensor = pressure_sensor
         self.pump = pump
+        self.co2 = co2
         self.valve_num_positions = valve_num_positions
         self._pump_state = "OFF"
 
@@ -82,6 +84,7 @@ class Dashboard:
             ("MFC", self.mfc),
             ("Pressure sensor", self.sensor),
             ("Pump", self.pump),
+            ("CO2 sensor", self.co2),
         ):
             if device is None:
                 self._set_status(f"{name} not connected")
@@ -153,6 +156,7 @@ class Dashboard:
         self._var_firmware = tk.StringVar(value="—")
         self._var_pump = tk.StringVar(value="OFF")
         self._var_valve_pos = tk.StringVar(value="—")
+        self._var_co2 = tk.StringVar(value="—")
         self._var_status = tk.StringVar(value="Ready")
         self._var_set_entry = tk.StringVar(value="0")
         self._var_valve_entry = tk.StringVar(value="1")
@@ -173,6 +177,7 @@ class Dashboard:
         content = ttk.Frame(self.root, style="Dashboard.TFrame")
         content.grid(row=1, column=0, columnspan=4, sticky="nsew", padx=10)
         content.columnconfigure((0, 1, 2, 3), weight=1, uniform="panel")
+        content.rowconfigure(0, weight=1)
 
         mfc_frame = ttk.LabelFrame(
             content, text="Mass Flow Controller (MFC)",
@@ -198,6 +203,12 @@ class Dashboard:
         )
         valve_frame.grid(row=0, column=3, sticky="nsew")
         self._build_valve_panel(valve_frame)
+
+        co2_frame = ttk.LabelFrame(
+            content, text="CO2 Sensor (GMP343)", style="Dashboard.TLabelframe"
+        )
+        co2_frame.grid(row=1, column=0, columnspan=4, sticky="nsew", pady=(10, 0))
+        self._build_co2_panel(co2_frame)
 
         tk.Label(
             self.root,
@@ -324,6 +335,17 @@ class Dashboard:
             self._valve_go_button.config(state="disabled")
             self._valve_home_button.config(state="disabled")
 
+    def _build_co2_panel(self, frame):
+        frame.columnconfigure(1, weight=1)
+        tk.Label(
+            frame, text="CO2",
+            font=("Helvetica", 12, "bold"), bg=PANEL_BG, fg=FG,
+        ).grid(row=0, column=0, sticky="w", padx=12, pady=8)
+        tk.Label(
+            frame, textvariable=self._var_co2,
+            font=("Helvetica", 24, "bold"), bg=PANEL_BG, fg="#a5c8ff",
+        ).grid(row=0, column=1, sticky="w", padx=8, pady=4)
+
     def _set_status(self, text):
         self._var_status.set(f"{time.strftime('%H:%M:%S')}  {text}")
 
@@ -435,6 +457,13 @@ class Dashboard:
                     status["valve_position"] = self.valve.get_position()
                 except Exception as exc:
                     status["valve_error"] = str(exc)
+            if self.co2 is not None:
+                try:
+                    reading = self.co2.get_measurement()
+                    status["co2"] = reading["co2"]
+                    status["co2_unit"] = reading.get("unit") or "ppm"
+                except Exception as exc:
+                    status["co2_error"] = str(exc)
         return status
 
     # ------------------------------------------------------------ UI loop
@@ -475,6 +504,11 @@ class Dashboard:
             self._var_valve_pos.set(
                 str(position) if position is not None else "moving…"
             )
+        if "co2_error" in data:
+            self._set_status("CO2 read failed: " + data["co2_error"])
+        if "co2" in data:
+            unit = data.get("co2_unit") or "ppm"
+            self._var_co2.set(f"{data['co2']:.1f} {unit}")
         if data.get("pump") != self._var_pump.get():
             self._var_pump.set(data["pump"])
             on = data["pump"] == "ON"
@@ -491,6 +525,7 @@ class Dashboard:
             (self.valve, "valve"),
             (self.mfc, "MFC"),
             (self.sensor, "pressure sensor"),
+            (self.co2, "CO2 sensor"),
         ):
             if device is not None and hasattr(device, "close"):
                 try:

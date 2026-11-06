@@ -9,7 +9,7 @@
 
 import tkinter as tk
 
-from config import load_valve_config, make_mfc, make_pressure_sensor, make_pump, make_valve
+from config import make_co2_sensor, make_mfc, make_pressure_sensor, make_pump, make_valve
 from dashboard import Dashboard, connect
 
 
@@ -24,12 +24,14 @@ def main():
     mfc, mfc_err = connect(make_mfc)
     sensor, sensor_err = connect(make_pressure_sensor)
     pump, pump_err = connect(make_pump)
+    co2, co2_err = connect(make_co2_sensor)
 
     for name, err in (
         ("Valve", valve_err),
         ("MFC", mfc_err),
         ("Pressure sensor", sensor_err),
         ("Pump", pump_err),
+        ("CO2 sensor", co2_err),
     ):
         if err:
             print(f"{name} not connected: {err}")
@@ -41,6 +43,7 @@ def main():
         mfc=mfc,
         pressure_sensor=sensor,
         pump=pump,
+        co2=co2,
         valve_num_positions=valve_num_positions,
     )
     root.mainloop()
