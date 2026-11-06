@@ -12,7 +12,7 @@ class CO2Sensor:
     Communicates over serial (default 19200 baud, 8 data bits, 1 stop
     bit, no parity, no flow control). Commands are ASCII, case
     insensitive, terminated with CR. Responses are lines terminated by
-    CR/LF, e.g.::
+    CR/LF, e.g.:
 
         > send
         348.7 ppm
