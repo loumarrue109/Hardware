@@ -41,7 +41,7 @@ class Pressure_Sensor:
         self.wake()
 
     def wake(self):
-        """Send F48 (initialise and release) to wake the sensor.
+        """Send F48 (initialise and release) to wake the sensor
 
         Returns firmware string
         None if the sensor is not responding

@@ -1,7 +1,6 @@
-# Dashboard GUI for the sampler hardware.
-# This module only draws and drives the Tkinter window; the device objects
-# are passed in, so the GUI can be reused or tested with fake devices.
-# Run the real thing with:  python3 main.py
+# Dashboard GUI for the sampler hardware
+# drives Tkinter window
+# device objects passed in
 
 import time
 import threading
@@ -9,17 +8,17 @@ import tkinter as tk
 from queue import Empty, Queue
 from tkinter import messagebox, ttk
 
-POLL_INTERVAL = 1.0  # seconds between sensor reads
-UI_POLL_INTERVAL = 200  # milliseconds between UI queue checks
+POLL_INTERVAL = 1.0  #seconds between sensor reads
+UI_POLL_INTERVAL = 200  #milliseconds between UI queue checks
 
 # Dark navy theme
-BG = "#0d1b2a"          # window background
-PANEL_BG = "#142a4d"    # panel / labelframe background
-ENTRY_BG = "#1c3a63"    # entry field background
-BUTTON_BG = "#1f3f6e"   # ttk button background
+BG = "#0d1b2a"          #window background
+PANEL_BG = "#142a4d"    #panel / labelframe background
+ENTRY_BG = "#1c3a63"    #entry field background
+BUTTON_BG = "#1f3f6e"   #ttk button background
 BUTTON_ACTIVE = "#3a67a3"
-FG = "#e8e8f0"          # main text colour
-FG_DIM = "#7fb3d9"      # disabled / secondary text
+FG = "#e8e8f0"          #main text colour
+FG_DIM = "#7fb3d9"      #disabled / secondary text
 PUMP_ON = "#4ade80"
 PUMP_OFF = "#ff5f5f"
 
@@ -41,16 +40,13 @@ def _fmt(value, unit=""):
 
 class Dashboard:
     """
-    Local control dashboard for the sampler hardware.
-
-    Any device may be None, in which case its panel and buttons are
-    disabled. Devices are only accessed from a background worker thread.
+    Local control dashboard for sampler hardware
     """
 
     def __init__(
         self,
         root,
-        valve=None,
+        valve=None, #none=no device given, main.py passes real devices
         mfc=None,
         pressure_sensor=None,
         pump=None,
@@ -65,8 +61,8 @@ class Dashboard:
         self._setup_style()
 
         self._lock = threading.Lock()
-        self._queue = Queue()      # worker -> UI updates
-        self._actions = Queue()    # UI -> worker commands
+        self._queue = Queue()      # worker - UI updates every 1s automatically
+        self._actions = Queue()    # UI - worker commands e.g. set flow, Pump on
         self._stop = threading.Event()
 
         self.valve = valve

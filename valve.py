@@ -53,10 +53,9 @@ class ValveConfig:
 
     def apply(self, valve, save=False):
         """
-        Push every set field to the valve and report each reply.
+        Push set field to the valve and report reply
 
-        Returns a dict {field_name: actuator_response}. Pass save=True
-        to also store the new configuration as the backup (WP).
+        Returns dict {field_name: actuator_response}. Pass save=True.
         """
         reports = {}
         for field, method in self.FIELDS:
@@ -70,11 +69,7 @@ class ValveConfig:
 
 class Valve:
     """
-    Interface for the VICI EUTA valve actuator (firmware MUA_MAIN_ST_2.56).
-
-    Communicates over a serial port (default /dev/ttyUSB1 at 9600 baud)
-    using the EUTA command set. Commands are terminated with CR, responses
-    are CR terminated (multi-line responses separated by LF CR).
+    Interface for VICI EUTA valve actuator (firmware MUA_MAIN_ST_2.56)
 
     Command list (from 'VICI_MU_Actuator_User_Manual_V2'):
         AL         - Move valve to index

@@ -6,8 +6,7 @@ import serial
 
 class CO2Sensor:
     """
-    Vaisala GMP343 (flow-through) CO2 sensor using the
-    GMP343
+    Vaisala GMP343 (flow-through) CO2 sensor
 
         SEND        - output one measurement (works in STOP and POLL mode)
         R / S       - start / stop continuous measurement output
@@ -24,7 +23,7 @@ class CO2Sensor:
         send_command()    - Send any command and return its response
     """
 
-    NUMBER = re.compile(r"^\s*([-+]?[0-9]*\.?[0-9]+)\s*([a-zA-Z%/]*)")
+    NUMBER = re.compile(r"^\s*([-+]?[0-9]*\.?[0-9]+)\s*([a-zA-Z%/]*)") #defines regex extracting a number plus optional unit from a line
 
     def __init__(
         self,
@@ -120,11 +119,11 @@ class CO2Sensor:
         return reading
 
     def get_co2(self):
-        """Return the current CO2 concentration in ppm."""
+        """Return the current CO2 (ppm)"""
         return self.get_measurement()["co2"]
 
     def get_status(self):
-        """Return the latest measurement as a dict."""
+        """Return latest measurement as a dict"""
         return self.get_measurement()
 
     # ------------------------------------------------------------ control
@@ -140,48 +139,46 @@ class CO2Sensor:
         return self.send_command("S")
 
     def set_interval(self, value, unit="s"):
-        """Set the continuous output interval (INTV): value + s/min/h."""
+        """Set continuous output interval (INTV): value + s/min/h."""
         return self.send_command(f"INTV {value} {unit}")
 
     def set_mode(self, mode):
-        """Set the measurement mode (SMODE): STOP, RUN or POLL."""
+        """Set measurement mode (SMODE): STOP, RUN or POLL."""
         mode = str(mode).upper()
         if mode not in ("STOP", "RUN", "POLL"):
             raise ValueError("Mode must be STOP, RUN or POLL.")
         return self.send_command(f"SMODE {mode}")
 
     def set_serial_mode(self, mode):
-        """Select RS-232 or RS-485 hardware (RSMODE): '232' or '485'."""
+        """Select (RS-)232 or (RS-)485"""
         mode = str(mode).strip()
         if mode not in ("232", "485"):
             raise ValueError("RSMODE must be '232' or '485'.")
         return self.send_command(f"RSMODE {mode}")
 
     def set_serial_parameters(self, expr):
-        """Send a SERI command to configure serial parameters (baud, ...).
+        """SERI command to configure serial parameters (baud, ...).
 
-        expr is the parameter string (see the manual for its syntax);
-        a passthrough since the exact SERI arguments are not documented
+        expr is the parameter string (see the manual)
         in the summary.
         """
         return self.send_command(f"SERI {expr}")
 
     def configure_format(self, expr):
-        """Send a FORM command to set the measurement output format.
+        """FORM command to set the measurement output format
 
-        expr is the format string (see the manual for its syntax); a
-        passthrough so you can configure exactly what is output.
+        expr is the format string
         """
         return self.send_command(f"FORM {expr}")
 
     def command_help(self):
-        """Request the command list (help)."""
+        """Request command list (help)"""
         return self.send_command("?")
 
     # ---------------------------------------------------------------- misc
 
     def close(self):
-        """Close the serial port."""
+        """Close serial port"""
         if self.ser.is_open:
             self.ser.close()
 
