@@ -1,5 +1,5 @@
-# Rig configuration for the sampler.
-# This is a data file -- edit it freely, it is not Python code.
+#adjust if needed e.g. when usb numeration changes
+#this toml is called for dashboard
 
 [serial]
 port = "/dev/ttyUSB1"
