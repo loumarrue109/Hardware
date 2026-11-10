@@ -4,10 +4,10 @@ from gpiozero import OutputDevice
 
 class Pump:
     """
-    Controls a pump connected to a Crydom D2410 solid-state relay.
+    KNF N86 pump connected to Crydom D2410 solid-state relay
 
-    The relay is controlled via GPIO17 (physical pin 11) of the
-    Raspberry Pi. The pump must have its own power supply.
+    Relay controlled by GPIO17 (physical pin 11).
+    Pump has own power supply.
 
     Methods:
         on(): Turn the pump on.

@@ -6,19 +6,9 @@ import serial
 
 class CO2Sensor:
     """
-    Interface for the Vaisala GMP343 (flow-through) CO2 sensor using the
-    GMP343 serial command set (M210514EN-E user's guide).
+    Vaisala GMP343 (flow-through) CO2 sensor using the
+    GMP343
 
-    Communicates over serial (default 19200 baud, 8 data bits, 1 stop
-    bit, no parity, no flow control). Commands are ASCII, case
-    insensitive, terminated with CR. Responses are lines terminated by
-    CR/LF, e.g.:
-
-        > send
-        348.7 ppm
-        >
-
-    Relevant commands:
         SEND        - output one measurement (works in STOP and POLL mode)
         R / S       - start / stop continuous measurement output
         INTV        - set the output interval
@@ -28,10 +18,10 @@ class CO2Sensor:
         SERI        - configure serial communication parameters (baud, ...)
 
     Main functions:
-        get_co2()         - Return the latest CO2 reading in ppm.
-        get_measurement() - Trigger one reading and return a dict.
-        get_status()      - Same as get_measurement().
-        send_command()    - Send any command and return its response lines.
+        get_co2()         - Return latest CO2 reading in ppm
+        get_measurement() - Trigger one reading and return a dict
+        get_status()      - Same as get_measurement()
+        send_command()    - Send any command and return its response
     """
 
     NUMBER = re.compile(r"^\s*([-+]?[0-9]*\.?[0-9]+)\s*([a-zA-Z%/]*)")

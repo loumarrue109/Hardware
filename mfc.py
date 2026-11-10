@@ -4,13 +4,10 @@ import propar
 
 class MFC:
     """
-    Interface for the EL FLOW Prestige FG201CV Mass Flow Controller.
-
-    Communicates via ProPar over RS232/USB at 38400 baud.
-    The current MFC is configured for 0–1000 mln/min.
+    EL FLOW Prestige FG201CV Mass Flow Controller
+    MFC is configured for 0–1000 mln/min
 
     Main functions:
-        get_serial()      - Read the MFC serial number.
         get_flow()        - Read the current measured flow.
         get_setpoint()    - Read the current flow setpoint.
         get_capacity()    - Read the configured maximum capacity.
@@ -48,6 +45,7 @@ class MFC:
             pass
 
     def get_serial(self):
+        """Read serial number"""
         serial = self.instrument.readParameter(1)
         return serial.strip("\x07")
 
@@ -74,10 +72,9 @@ class MFC:
         raise RuntimeError("Failed to set MFC control mode.")
 
     def get_flow(self):
-        """Return the measured flow in ml/min.
-
-        The device returns the measure as raw 0-32000 counts (full scale
-        = the configured capacity), so convert to engineering units here.
+        """Return measured flow in ml/min
+        Normally returns flow as raw 0-32000 counts (full scale
+        = the configured capacity)
         """
         counts = self.instrument.read(1, 0, 34)
         if counts is None:
@@ -105,9 +102,6 @@ class MFC:
 
         mode = self.get_control_mode()
         if mode not in (0, 11, 18):
-            # The instrument can revert to an analog setpoint source (e.g.
-            # after a power cycle); the dashboard always drives it
-            # digitally, so switch the source to the BUS/RS-232 setpoint.
             self.set_control_mode(0)
 
         success = self.instrument.write(33, 3, 65, float(flow))

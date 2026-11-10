@@ -6,15 +6,12 @@ import serial
 
 class ValveConfig:
     """
-    Intended configuration for the EUTA actuator, as a single object.
+    EUTA actuator
 
     Only the fields you set are sent to the valve (None skips the
     command), so a partial config can update just one thing:
 
         ValveConfig(num_positions=16).apply(valve)
-
-    Warning: setting baudrate changes the link speed immediately; the
-    host must follow at the new speed or the valve becomes unreachable.
     """
 
     FIELDS = (

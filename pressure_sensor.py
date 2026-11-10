@@ -3,7 +3,7 @@ import keller_protocol.keller_protocol as kp
 
 class Pressure_Sensor:
     """
-    Interface for a Keller pressure sensor.
+    Keller pressure sensor PAA 23SX
     """
 
     def __init__(
@@ -26,7 +26,7 @@ class Pressure_Sensor:
 
         self.pressure_unit = "bar"
 
-        # Calibration
+        #Calibration
         self.calibration_slope = calibration_slope
         self.calibration_offset = calibration_offset
 
@@ -37,16 +37,14 @@ class Pressure_Sensor:
             echo=self.echo,
         )
 
-        # Wake / initialise the sensor once we own the port. F48 both wakes
-        # a sleeping sensor and reports the firmware version; without this
-        # the very first pressure read can miss the sensor's response.
+        #Initialise sensor 
         self.wake()
 
     def wake(self):
         """Send F48 (initialise and release) to wake the sensor.
 
-        Returns the firmware string, or None if the sensor is not
-        responding right now.
+        Returns firmware string
+        None if the sensor is not responding
         """
         try:
             return self.get_firmware()
@@ -57,14 +55,14 @@ class Pressure_Sensor:
         return self.bus.f48(self.address)
 
     def get_pressure(self):
-        """Return the raw pressure from the Keller."""
+        """Return the raw pressure"""
         return self.bus.f73(
             self.address,
             self.channel
         )
 
     def get_calibrated_pressure(self):
-        """Return the pressure after applying calibration."""
+        """Return pressure after applying calibration"""
         raw_pressure = self.get_pressure()
 
         return (

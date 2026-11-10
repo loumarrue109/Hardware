@@ -1,11 +1,7 @@
-# Sampler rig entry point.
-# Builds the hardware from config.toml and opens the dashboard GUI.
-# Run with:  python3 main.py
-#
-# This is the wiring layer: it hardcodes which device classes are used and
-# how they are connected. Later, different mechanisms (calibration runs,
-# automated sequences, new hardware) can be added here without touching
-# the dashboard itself.
+#Start dashboard: python main.py
+#opens dashboard GUI
+#connects classes 
+
 
 import tkinter as tk
 
