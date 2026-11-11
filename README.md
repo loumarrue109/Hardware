@@ -44,7 +44,7 @@ The dependency direction matters:
 
 | File | Purpose |
 |------|---------|
-| `main.py` | Entry point: config -> devices -> dashboard GUI |
+| `main.py` | Entry point: config -> devices -> dashboard GUI | Note: e.g. The /dev/ttyUSB1 written in Valve.__init__ is only a default that applies when config.toml doesn't override it.
 | `dashboard.py` | Tkinter GUI (panels with live values + controls) |
 | `config.py` | TOML loaders, one small factory per device |
 | `config.toml` | Rig configuration (ports, valve size, safety notes) |
@@ -108,7 +108,7 @@ Example: `Valve()` opens `/dev/ttyUSB1`; if config.toml says
 - **Valve config persists in the actuator** (NP16, AM3, SM A, IFM2 live
   on the device); re-apply via `VALVE_CONFIG.apply(valve)` after a
   factory reset (`EE`).
-- **MFC setpoint source**: the EL-FLOW can revert to its analog setpoint
+- **MFC setpoint source**: the EL-FLOW can switch to its analog setpoint
   input after a power cycle. `set_flow()` detects this and switches to
   the digital (BUS/RS-232) setpoint automatically.
 - **Dashboard threading**: a worker thread does all serial/GPIO reads and

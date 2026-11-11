@@ -5,6 +5,7 @@
 import time
 import threading
 import tkinter as tk
+from pathlib import Path
 from queue import Empty, Queue
 from tkinter import messagebox, ttk
 
@@ -46,12 +47,15 @@ class Dashboard:
     def __init__(
         self,
         root,
-        valve=None, #none=no device given, main.py passes real devices
+        valve=None,
         mfc=None,
         pressure_sensor=None,
         pump=None,
         co2=None,
         valve_num_positions=16,
+        co2_log_path="co2_log.csv",
+        co2_log_window=60.0,
+        co2_log_fields=(),
     ):
         self.root = root
         self.root.title("Abbey ROAD (Remote Observation & Aquistion Dashboard)")
@@ -71,6 +75,11 @@ class Dashboard:
         self.pump = pump
         self.co2 = co2
         self.valve_num_positions = valve_num_positions
+        self.co2_log_path = co2_log_path
+        self.co2_log_window = co2_log_window
+        self.co2_log_fields = tuple(co2_log_fields)
+        self._co2_recorder = None
+        self._co2_log_full = None
         self._pump_state = "OFF"
 
         self._build_ui()
@@ -153,6 +162,7 @@ class Dashboard:
         self._var_pump = tk.StringVar(value="OFF")
         self._var_valve_pos = tk.StringVar(value="—")
         self._var_co2 = tk.StringVar(value="—")
+        self._var_log_state = tk.StringVar(value="Logging: off")
         self._var_status = tk.StringVar(value="Ready")
         self._var_set_entry = tk.StringVar(value="0")
         self._var_valve_entry = tk.StringVar(value="1")
@@ -342,6 +352,18 @@ class Dashboard:
             font=("Helvetica", 24, "bold"), bg=PANEL_BG, fg="#a5c8ff",
         ).grid(row=0, column=1, sticky="w", padx=8, pady=4)
 
+        controls = ttk.Frame(frame, style="Dashboard.TFrame")
+        controls.grid(row=1, column=0, columnspan=2, sticky="ew", padx=8, pady=(0, 6))
+        self._log_button = ttk.Button(
+            controls, text="Start Logging", command=self._on_toggle_logging,
+            style="Dashboard.TButton",
+        )
+        self._log_button.pack(side="left")
+        tk.Label(
+            controls, textvariable=self._var_log_state,
+            anchor="w", bg=PANEL_BG, fg=FG_DIM,
+        ).pack(side="left", padx=(12, 0))
+
     def _set_status(self, text):
         self._var_status.set(f"{time.strftime('%H:%M:%S')}  {text}")
 
@@ -387,6 +409,38 @@ class Dashboard:
             return
         self._submit("valve_go", value)
         self._set_status(f"Moving valve to position {value}...")
+
+    def _new_log_path(self):
+        """Return a fresh timestamped CSV path for a new logging session."""
+        base = Path(self.co2_log_path)
+        base.mkdir(parents=True, exist_ok=True)
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        candidate = base / f"co2_{stamp}.csv"
+        counter = 1
+        while candidate.exists():
+            candidate = base / f"co2_{stamp}_{counter}.csv"
+            counter += 1
+        return str(candidate)
+
+    def _on_toggle_logging(self):
+        from co2_logger import CO2LogRecorder
+
+        if self._co2_recorder is None:
+            self._co2_log_full = self._new_log_path()
+            self._co2_recorder = CO2LogRecorder(
+                self._co2_log_full, self.co2_log_window,
+                extra_fields=self.co2_log_fields,
+            )
+            self._log_button.config(text="Stop Logging")
+            self._var_log_state.set(f"Logging to {self._co2_log_full}…")
+            self._set_status(f"CO2 logging started: {self._co2_log_full}")
+        else:
+            with self._lock:
+                self._co2_recorder.emit()
+                self._co2_recorder = None
+            self._log_button.config(text="Start Logging")
+            self._var_log_state.set("Logging: off")
+            self._set_status(f"CO2 logging stopped: {self._co2_log_full}")
 
     # -------------------------------------------------------------- worker
 
@@ -458,6 +512,13 @@ class Dashboard:
                     reading = self.co2.get_measurement()
                     status["co2"] = reading["co2"]
                     status["co2_unit"] = reading.get("unit") or "ppm"
+                    if self._co2_recorder is not None:
+                        extras = {
+                            key: reading[key]
+                            for key in self.co2_log_fields
+                            if key in reading
+                        }
+                        self._co2_recorder.add(time.time(), reading["co2"], extras)
                 except Exception as exc:
                     status["co2_error"] = str(exc)
         return status
@@ -505,6 +566,15 @@ class Dashboard:
         if "co2" in data:
             unit = data.get("co2_unit") or "ppm"
             self._var_co2.set(f"{data['co2']:.1f} {unit}")
+        if self._co2_recorder is not None:
+            count = self._co2_recorder.count
+            since = self._co2_recorder.since
+            if since is not None:
+                elapsed = int(time.time() - since)
+                self._var_log_state.set(
+                    f"logging {self._co2_log_full} — {count} samples, "
+                    f"{elapsed}/{int(self.co2_log_window)} s"
+                )
         if data.get("pump") != self._var_pump.get():
             self._var_pump.set(data["pump"])
             on = data["pump"] == "ON"
@@ -516,6 +586,10 @@ class Dashboard:
     def close(self):
         self._stop.set()
         self._worker.join(timeout=2)
+        if self._co2_recorder is not None:
+            with self._lock:
+                self._co2_recorder.emit()
+            self._co2_recorder = None
         for device, name in (
             (self.pump, "pump"),
             (self.valve, "valve"),

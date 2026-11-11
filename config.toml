@@ -36,3 +36,18 @@ pin = 17
 port = "/dev/ttyUSB0"   # verified: CO2 adapter is here (echoes via jumper)
 baudrate = 19200
 timeout = 2.0
+
+[logging]
+# Directory where the dashboard writes one timestamped CSV per logging
+# session, e.g. co2_20261111_132916.csv
+co2_path = "/home/intsampler/code/logging"
+co2_window = 60            # summary window in seconds
+# Quantities sent with the CO2 reading (see CALCS). CO2 is always included;
+# CO2RAWUC gives uncompensated CO2, T/P/RH/O the compensation inputs.
+co2_fields = ["CO2", "CO2RAWUC", "T", "P", "RH", "O"]
+co2_average = 0         # disable the sensor's internal averaging filter;
+                        # the logger does the per-minute averaging by hand
+
+# [analog]
+# Analog output voltage reading (0-5 V, AMODE U) for calibration.
+# adc = "none"   # "ads1115", "mcp3008", or a script that prints a float
