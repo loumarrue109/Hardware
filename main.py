@@ -66,6 +66,7 @@ def main():
         co2_log_path=logging_cfg.get("co2_path", "co2_log.csv"),
         co2_log_window=float(logging_cfg.get("co2_window", 60)),
         co2_log_fields=co2_log_fields,
+        co2_log_mode=logging_cfg.get("co2_mode", "average"),
     )
     root.mainloop()
 

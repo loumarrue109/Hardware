@@ -47,6 +47,10 @@ co2_window = 60            # summary window in seconds
 co2_fields = ["CO2", "CO2RAWUC", "T", "P", "RH", "O"]
 co2_average = 0         # disable the sensor's internal averaging filter;
                         # the logger does the per-minute averaging by hand
+co2_mode = "average"    # "average" = per-minute mean/std, "raw" = one row
+                        # per measurement (~2 s)
+# The log always also includes mfc_flow_mean (MFC measured flow) and
+# calib_ppm_mean (selected 0/3/400 ppm calibration gas, NaN if none).
 
 # [analog]
 # Analog output voltage reading (0-5 V, AMODE U) for calibration.

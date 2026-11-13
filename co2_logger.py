@@ -25,11 +25,16 @@ class CO2LogRecorder:
     at the end to flush a partially filled window.
     """
 
-    def __init__(self, path="co2_log.csv", window=60.0, extra_fields=()):
+    def __init__(self, path="co2_log.csv", window=60.0, extra_fields=(), mode="average"):
+        if mode not in ("average", "raw"):
+            raise ValueError("mode must be 'average' or 'raw'")
         self.path = Path(path)
         self.window = window
+        self.mode = mode
         self.extra_fields = tuple(extra_fields)
-        self._buffer = []  # (timestamp, co2_ppm, extra_dict)
+        self._buffer = []      # (timestamp, co2_ppm, extra_dict) -- average mode
+        self._written = 0      # rows written -- raw mode
+        self._first_ts = None  # first sample time -- raw mode
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._write_header()
 
@@ -37,12 +42,24 @@ class CO2LogRecorder:
 
     def _write_header(self):
         if not self.path.exists() or self.path.stat().st_size == 0:
-            columns = ["timestamp", "co2_mean_ppm", "co2_std_ppm", "n_samples"]
-            columns += [f"{field}_mean" for field in self.extra_fields]
+            if self.mode == "average":
+                columns = ["timestamp", "co2_mean_ppm", "co2_std_ppm", "n_samples"]
+                columns += [f"{field}_mean" for field in self.extra_fields]
+            else:  # raw: one row per measurement
+                columns = ["timestamp", "co2_ppm"] + list(self.extra_fields)
             with open(self.path, "a", newline="") as handle:
                 csv.writer(handle).writerow(columns)
 
-    def _write_row(self, timestamp, mean, stdev, count):
+    @staticmethod
+    def _fmt(value):
+        if value is None:
+            return ""
+        try:
+            return f"{float(value):.2f}"
+        except (TypeError, ValueError):
+            return str(value)
+
+    def _write_row_average(self, timestamp, mean, stdev, count):
         columns = [
             timestamp,
             f"{mean:.2f}",
@@ -59,29 +76,47 @@ class CO2LogRecorder:
         with open(self.path, "a", newline="") as handle:
             csv.writer(handle).writerow(columns)
 
+    def _write_row_raw(self, timestamp, co2, extra):
+        columns = [
+            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp)),
+            f"{co2:.2f}",
+        ]
+        columns += [self._fmt(extra.get(field)) for field in self.extra_fields]
+        with open(self.path, "a", newline="") as handle:
+            csv.writer(handle).writerow(columns)
+
     # ------------------------------------------------------------- state
 
     @property
     def count(self):
-        """Number of samples in the current window."""
-        return len(self._buffer)
+        """Samples in the current window, or rows written (raw mode)."""
+        return self._written if self.mode == "raw" else len(self._buffer)
 
     @property
     def since(self):
-        """Timestamp of the first sample in the current window (or None)."""
+        """Timestamp of the first sample/row of the current logging run."""
+        if self.mode == "raw":
+            return self._first_ts
         return self._buffer[0][0] if self._buffer else None
 
     # ------------------------------------------------------------ logging
 
     def add(self, timestamp, co2, extra=None):
-        """Add one sample; emits a row when the window fills up."""
-        self._buffer.append((timestamp, co2, extra or {}))
+        """Add one sample; average mode emits when the window fills."""
+        extra = extra or {}
+        if self.mode == "raw":
+            if self._first_ts is None:
+                self._first_ts = timestamp
+            self._written += 1
+            self._write_row_raw(timestamp, co2, extra)
+            return
+        self._buffer.append((timestamp, co2, extra))
         if self._buffer and self._buffer[-1][0] - self._buffer[0][0] >= self.window:
             self.emit()
 
     def emit(self):
-        """Write the mean/std of the current window and reset it."""
-        if not self._buffer:
+        """Write the mean/std of the current window and reset it (average)."""
+        if self.mode != "average" or not self._buffer:
             return
         values = [value for _, value, _ in self._buffer]
         mean = statistics.fmean(values)
@@ -89,7 +124,7 @@ class CO2LogRecorder:
         timestamp = time.strftime(
             "%Y-%m-%d %H:%M:%S", time.localtime(self._buffer[-1][0])
         )
-        self._write_row(timestamp, mean, stdev, len(values))
+        self._write_row_average(timestamp, mean, stdev, len(values))
         self._buffer.clear()
 
 
@@ -97,17 +132,18 @@ class CO2Logger:
     """Standalone continuous logger: samples and writes per-minute rows."""
 
     def __init__(self, path="co2_log.csv", sample_interval=2.0, window=60.0,
-                 average=0.0, sensor=None):
+                 average=0.0, mode="average", sensor=None):
         self.path = Path(path)
         self.sample_interval = sample_interval
         self.window = window
         self.average = average
+        self.mode = mode
         self.sensor = sensor if sensor is not None else make_co2_sensor()
 
     def run(self):
         if self.average is not None:
             self.sensor.set_average(float(self.average))
-        recorder = CO2LogRecorder(self.path, self.window)
+        recorder = CO2LogRecorder(self.path, self.window, mode=self.mode)
         try:
             while True:
                 now = time.time()
@@ -138,6 +174,8 @@ def main():
     parser.add_argument("--window", type=float, default=60.0, help="summary window (s)")
     parser.add_argument("--average", type=float, default=0.0,
                         help="sensor averaging filter in s (0 = off, hand averaging)")
+    parser.add_argument("--mode", choices=["average", "raw"], default="average",
+                        help="average = per-minute mean/std, raw = one row per measurement")
     args = parser.parse_args()
 
     CO2Logger(
@@ -145,6 +183,7 @@ def main():
         sample_interval=args.interval,
         window=args.window,
         average=args.average,
+        mode=args.mode,
     ).run()
 
 

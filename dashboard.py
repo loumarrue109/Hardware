@@ -2,6 +2,7 @@
 # drives Tkinter window
 # device objects passed in
 
+import collections
 import time
 import threading
 import tkinter as tk
@@ -56,11 +57,12 @@ class Dashboard:
         co2_log_path="co2_log.csv",
         co2_log_window=60.0,
         co2_log_fields=(),
+        co2_log_mode="average",
     ):
         self.root = root
         self.root.title("Abbey ROAD (Remote Observation & Aquistion Dashboard)")
-        self.root.geometry("1080x470")
-        self.root.minsize(900, 400)
+        self.root.geometry("1080x680")
+        self.root.minsize(900, 560)
         self.root.configure(bg=BG)
         self._setup_style()
 
@@ -78,8 +80,14 @@ class Dashboard:
         self.co2_log_path = co2_log_path
         self.co2_log_window = co2_log_window
         self.co2_log_fields = tuple(co2_log_fields)
+        self._log_extra_fields = tuple(co2_log_fields) + ("mfc_flow", "calib_ppm")
+        self.co2_log_mode = co2_log_mode
         self._co2_recorder = None
         self._co2_log_full = None
+        self._co2_history = collections.deque(maxlen=1800)  # ~30 min at 1 Hz
+        self._last_graph_draw = 0.0
+        self._calib_ppm = None
+        self._calib_buttons = {}
         self._pump_state = "OFF"
 
         self._build_ui()
@@ -163,6 +171,8 @@ class Dashboard:
         self._var_valve_pos = tk.StringVar(value="—")
         self._var_co2 = tk.StringVar(value="—")
         self._var_log_state = tk.StringVar(value="Logging: off")
+        self._var_log_mode = tk.StringVar(value=self.co2_log_mode)
+        self._var_calib_state = tk.StringVar(value="Calib: none")
         self._var_status = tk.StringVar(value="Ready")
         self._var_set_entry = tk.StringVar(value="0")
         self._var_valve_entry = tk.StringVar(value="1")
@@ -216,6 +226,16 @@ class Dashboard:
         co2_frame.grid(row=1, column=0, columnspan=4, sticky="nsew", pady=(10, 0))
         self._build_co2_panel(co2_frame)
 
+        graph_frame = ttk.LabelFrame(
+            self.root, text="CO2 — last 30 min", style="Dashboard.TLabelframe"
+        )
+        graph_frame.grid(row=2, column=0, columnspan=4, sticky="nsew", padx=10, pady=(10, 0))
+        self._graph_canvas = tk.Canvas(
+            graph_frame, bg=PANEL_BG, height=170, highlightthickness=0
+        )
+        self._graph_canvas.pack(fill="both", expand=True, padx=4, pady=4)
+        self._graph_canvas.bind("<Configure>", lambda e: self._draw_co2_graph())
+
         tk.Label(
             self.root,
             textvariable=self._var_status,
@@ -224,7 +244,7 @@ class Dashboard:
             padx=8,
             bg=BG,
             fg=FG,
-        ).grid(row=2, column=0, columnspan=4, sticky="ew", padx=10, pady=10)
+        ).grid(row=3, column=0, columnspan=4, sticky="ew", padx=10, pady=10)
 
         self.root.rowconfigure(1, weight=1)
         self.root.columnconfigure(0, weight=1)
@@ -360,9 +380,106 @@ class Dashboard:
         )
         self._log_button.pack(side="left")
         tk.Label(
+            controls, text="log:", bg=PANEL_BG, fg=FG,
+        ).pack(side="left", padx=(10, 2))
+        tk.Radiobutton(
+            controls, text="minute avg", variable=self._var_log_mode, value="average",
+            bg=PANEL_BG, fg=FG, activebackground=PANEL_BG, activeforeground=FG,
+            selectcolor=BG, highlightthickness=0,
+        ).pack(side="left")
+        tk.Radiobutton(
+            controls, text="raw ~2 s", variable=self._var_log_mode, value="raw",
+            bg=PANEL_BG, fg=FG, activebackground=PANEL_BG, activeforeground=FG,
+            selectcolor=BG, highlightthickness=0,
+        ).pack(side="left")
+        tk.Label(
             controls, textvariable=self._var_log_state,
             anchor="w", bg=PANEL_BG, fg=FG_DIM,
         ).pack(side="left", padx=(12, 0))
+
+        calib = ttk.Frame(frame, style="Dashboard.TFrame")
+        calib.grid(row=2, column=0, columnspan=2, sticky="ew", padx=8, pady=(0, 8))
+        tk.Label(
+            calib, text="Calib gas:", bg=PANEL_BG, fg=FG,
+        ).pack(side="left")
+        for value, label in ((0, "0 ppm"), (3, "3 ppm"), (400, "400 ppm")):
+            button = tk.Button(
+                calib, text=label, width=8, bg=BUTTON_BG, fg=FG,
+                activebackground=BUTTON_ACTIVE,
+                command=lambda v=value: self._on_calib_select(v),
+            )
+            button.pack(side="left", padx=(6, 0))
+            self._calib_buttons[value] = button
+        tk.Label(
+            calib, textvariable=self._var_calib_state,
+            bg=PANEL_BG, fg=FG_DIM,
+        ).pack(side="left", padx=(12, 0))
+
+    # ----------------------------------------------------------- CO2 graph
+
+    def _maybe_draw_graph(self):
+        now = time.time()
+        if now - self._last_graph_draw < 2.0:
+            return
+        self._last_graph_draw = now
+        self._draw_co2_graph()
+
+    def _draw_co2_graph(self):
+        canvas = self._graph_canvas
+        canvas.delete("all")
+        width, height = canvas.winfo_width(), canvas.winfo_height()
+        if width < 50 or height < 50:
+            return
+
+        now = time.time()
+        window = 1800.0  # last 30 minutes
+        points = [(t, c) for t, c in self._co2_history if now - t <= window]
+        if len(points) < 2:
+            canvas.create_text(width // 2, height // 2,
+                               text="collecting CO2 data…", fill=FG_DIM)
+            return
+
+        co2s = [c for _, c in points]
+        lo, hi = min(co2s), max(co2s)
+        if hi - lo < 1.0:
+            lo, hi = lo - 0.5, hi + 0.5
+        pad = max(2.0, (hi - lo) * 0.1)
+        lo, hi = lo - pad, hi + pad
+
+        m_left, m_right, m_top, m_bottom = 46, 12, 12, 24
+        plot_w = width - m_left - m_right
+        plot_h = height - m_top - m_bottom
+        t0 = now - window
+
+        def tx(t):
+            return m_left + (t - t0) / window * plot_w
+
+        def ty(c):
+            return m_top + (hi - c) / (hi - lo) * plot_h
+
+        for frac in (0.0, 0.25, 0.5, 0.75, 1.0):
+            yy = m_top + frac * plot_h
+            value = hi - frac * (hi - lo)
+            canvas.create_line(m_left, yy, m_left + plot_w, yy, fill="#1e3a63")
+            canvas.create_text(m_left - 6, yy, text=f"{value:.0f}",
+                               anchor="e", fill=FG_DIM, font=("Helvetica", 8))
+
+        for frac in (0.0, 0.25, 0.5, 0.75, 1.0):
+            tt = t0 + frac * window
+            canvas.create_text(m_left + frac * plot_w, height - 10,
+                               text=time.strftime("%H:%M", time.localtime(tt)),
+                               anchor="n", fill=FG_DIM, font=("Helvetica", 8))
+
+        coords = []
+        for t, c in points:
+            coords.extend((tx(t), ty(c)))
+        if len(coords) >= 4:
+            canvas.create_line(*coords, fill="#7ab8ff", width=1.5, smooth=True)
+
+        last_c = points[-1][1]
+        canvas.create_text(m_left + plot_w - 4, m_top + 4,
+                           text=f"{last_c:.1f} ppm", anchor="ne",
+                           fill="#a5c8ff", font=("Helvetica", 9, "bold"))
 
     def _set_status(self, text):
         self._var_status.set(f"{time.strftime('%H:%M:%S')}  {text}")
@@ -422,6 +539,23 @@ class Dashboard:
             counter += 1
         return str(candidate)
 
+    def _on_calib_select(self, value):
+        """Select/deselect the synthetic calibration gas (0, 3 or 400 ppm)."""
+        if self._calib_ppm == value:
+            self._calib_ppm = None  # toggle off -> NaN in the log
+        else:
+            self._calib_ppm = value
+        for button_value, button in self._calib_buttons.items():
+            button.config(
+                bg=BUTTON_ACTIVE if button_value == self._calib_ppm else BUTTON_BG
+            )
+        if self._calib_ppm is None:
+            self._var_calib_state.set("Calib: none")
+            self._set_status("Calibration gas: none (logged as NaN)")
+        else:
+            self._var_calib_state.set(f"Calib: {self._calib_ppm} ppm")
+            self._set_status(f"Calibration gas: {self._calib_ppm} ppm")
+
     def _on_toggle_logging(self):
         from co2_logger import CO2LogRecorder
 
@@ -429,7 +563,8 @@ class Dashboard:
             self._co2_log_full = self._new_log_path()
             self._co2_recorder = CO2LogRecorder(
                 self._co2_log_full, self.co2_log_window,
-                extra_fields=self.co2_log_fields,
+                extra_fields=self._log_extra_fields,
+                mode=self._var_log_mode.get(),
             )
             self._log_button.config(text="Stop Logging")
             self._var_log_state.set(f"Logging to {self._co2_log_full}…")
@@ -512,13 +647,24 @@ class Dashboard:
                     reading = self.co2.get_measurement()
                     status["co2"] = reading["co2"]
                     status["co2_unit"] = reading.get("unit") or "ppm"
+                    self._co2_history.append((time.time(), reading["co2"]))
                     if self._co2_recorder is not None:
                         extras = {
                             key: reading[key]
                             for key in self.co2_log_fields
                             if key in reading
                         }
-                        self._co2_recorder.add(time.time(), reading["co2"], extras)
+                        mfc_status = status.get("mfc")
+                        if mfc_status and mfc_status.get("flow") is not None:
+                            extras["mfc_flow"] = mfc_status["flow"]
+                        extras["calib_ppm"] = (
+                            self._calib_ppm
+                            if self._calib_ppm is not None
+                            else float("nan")
+                        )
+                        self._co2_recorder.add(
+                            time.time(), reading["co2"], extras
+                        )
                 except Exception as exc:
                     status["co2_error"] = str(exc)
         return status
@@ -531,6 +677,7 @@ class Dashboard:
                 self._populate(self._queue.get_nowait())
         except Empty:
             pass
+        self._maybe_draw_graph()
         self.root.after(UI_POLL_INTERVAL, self._poll)
 
     def _populate(self, data):
@@ -570,11 +717,16 @@ class Dashboard:
             count = self._co2_recorder.count
             since = self._co2_recorder.since
             if since is not None:
-                elapsed = int(time.time() - since)
-                self._var_log_state.set(
-                    f"logging {self._co2_log_full} — {count} samples, "
-                    f"{elapsed}/{int(self.co2_log_window)} s"
-                )
+                if self._co2_recorder.mode == "raw":
+                    self._var_log_state.set(
+                        f"logging {self._co2_log_full} — {count} rows"
+                    )
+                else:
+                    elapsed = int(time.time() - since)
+                    self._var_log_state.set(
+                        f"logging {self._co2_log_full} — {count} samples, "
+                        f"{elapsed}/{int(self.co2_log_window)} s"
+                    )
         if data.get("pump") != self._var_pump.get():
             self._var_pump.set(data["pump"])
             on = data["pump"] == "ON"
